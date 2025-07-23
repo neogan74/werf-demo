@@ -1,0 +1,36 @@
+name: Deploy with werf
+
+on:
+  push:
+    branches:
+      - main
+  
+env:
+  WERF_PROJECT_NAME: werf-demo
+  WERF_ENVIRONMENT: production  
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up werf
+        run: |
+          curl -L https://werf.io/install.sh | bash
+          echo "$HOME/.werf/bin" >> $GITHUB_PATH
+
+      - name: Log in to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Deploy with werf
+        env:
+          WERF_LOG_TERMINAL_WIDTH: "120"
+        run: |
+          werf version
+          werf converge \
+            --repo $WERF_REPO \
+            --env $WERF_ENV \
+            --helm-set=image.repository=$WERF_REPO/myapp \
+            --helm-set=image.tag=$(werf ci-env github --as-file | grep WERF_IMAGE_TAG | cut -d '=' -f2)
